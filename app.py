@@ -1,10 +1,7 @@
 import streamlit as st
 import pandas as pd
-import folium
-import json
 import uuid
 from datetime import datetime
-from streamlit.components.v1 import html
 
 # إعدادات السيرفر للاستضافة
 st.set_page_config(
@@ -91,8 +88,7 @@ def create_sample_users():
             "language": "العربية, الإنجليزية, الصينية",
             "specialization": "هندسة مدنية",
             "expertise": ["مترجم صيني عربي", "خبير خدمات طلابية"],
-            "registration_date": "2024-01-15 10:30",
-            "color": "green"
+            "registration_date": "2024-01-15 10:30"
         },
         {
             "id": str(uuid.uuid4()),
@@ -107,8 +103,7 @@ def create_sample_users():
             "language": "العربية, الصينية, الإنجليزية",
             "specialization": "تسويق رقمي",
             "expertise": ["مترجم صيني انجليزي عربي", "خبير معاملات حكومية"],
-            "registration_date": "2024-01-10 14:20",
-            "color": "orange"
+            "registration_date": "2024-01-10 14:20"
         },
         {
             "id": str(uuid.uuid4()),
@@ -123,8 +118,7 @@ def create_sample_users():
             "language": "العربية, الإنجليزية, الصينية",
             "specialization": "تجارة واستيراد",
             "expertise": ["خبير فحص منتجات", "خبير اشراف على الشحن", "خبير فحص مصانع وشركات"],
-            "registration_date": "2024-01-20 09:15",
-            "color": "green"
+            "registration_date": "2024-01-20 09:15"
         }
     ]
 
@@ -227,14 +221,6 @@ def show_registration_form():
                 lat = CHINA_CITIES[city]["lat"]
                 lon = CHINA_CITIES[city]["lon"]
                 
-                # تحديد اللون حسب الحالة
-                if status == "متاح":
-                    color = "green"
-                elif status == "مشغول":
-                    color = "orange"
-                else:
-                    color = "red"
-                
                 new_user = {
                     "id": str(uuid.uuid4()),
                     "name": name,
@@ -248,8 +234,7 @@ def show_registration_form():
                     "language": ", ".join(language),
                     "specialization": specialization,
                     "expertise": expertise,
-                    "registration_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "color": color
+                    "registration_date": datetime.now().strftime("%Y-%m-%d %H:%M")
                 }
                 
                 st.session_state.users.append(new_user)
@@ -270,8 +255,8 @@ def show_registration_form():
             else:
                 st.error("⚠️ يرجى ملء جميع الحقول الإلزامية (*) بما في ذلك مجالات الخبرة")
 
-def create_folium_map():
-    """إنشاء خريطة Folium وإرجاعها كـ HTML"""
+def display_users_list(filtered_users):
+    """عرض قائمة المستخدمين مع خيارات التصفية"""
     
     # الشريط الجانبي للتصفية
     st.sidebar.header("🔍 تصفية البحث")
@@ -312,33 +297,7 @@ def create_folium_map():
         if calculate_user_rating(u['id'])[0] >= min_rating
     ]
     
-    # إنشاء الخريطة
-    m = folium.Map(location=[35.0, 105.0], zoom_start=4)
-    
-    # إضافة المستخدمين إلى الخريطة
-    for user in filtered_users:
-        avg_rating, total_reviews = calculate_user_rating(user['id'])
-        
-        popup_html = f"""
-        <div style="width: 300px; direction: rtl; text-align: right;">
-            <h4>{user['name']}</h4>
-            <p><b>المدينة:</b> {user['city']}</p>
-            <p><b>الحالة:</b> {user['status']}</p>
-            <p><b>التقييم:</b> {avg_rating} ⭐ ({total_reviews} تقييم)</p>
-            <p><b>التواصل:</b> {user['contact_type']}: {user['contact_info']}</p>
-            <p><b>مجالات الخبرة:</b> {', '.join(user.get('expertise', []))}</p>
-        </div>
-        """
-        
-        folium.Marker(
-            [user['lat'], user['lon']],
-            popup=folium.Popup(popup_html, max_width=300),
-            tooltip=user['name'],
-            icon=folium.Icon(color=user.get('color', 'gray'), icon='user')
-        ).add_to(m)
-    
-    # إرجاع الخريطة والمستخدمين المصفاة
-    return m._repr_html_(), filtered_users
+    return filtered_users
 
 def show_map():
     st.header("🗺️ خريطة المغتربين في الصين")
@@ -350,14 +309,41 @@ def show_map():
         st.warning("⚠️ لا توجد بيانات لعرضها. يرجى تسجيل مستخدمين جدد.")
         return
     
-    # إنشاء وعرض الخريطة
-    st.subheader("الخريطة التفاعلية")
-    st.markdown("انقر على أي علامة في الخريطة لعرض معلومات المغترب")
+    # تطبيق التصفية
+    filtered_users = display_users_list(st.session_state.users)
     
-    map_html, filtered_users = create_folium_map()
+    # عرض خريطة مبسطة باستخدام البيانات الجدولية
+    st.subheader("📍 مواقع المغتربين على الخريطة")
     
-    # عرض الخريطة باستخدام html component
-    html(map_html, width=1200, height=600)
+    # إنشاء جدول تفاعلي يظهر المواقع
+    map_data = []
+    for user in filtered_users:
+        avg_rating, total_reviews = calculate_user_rating(user['id'])
+        map_data.append({
+            'الاسم': user['name'],
+            'المدينة': user['city'].split(' - ')[0],
+            'الحالة': user['status'],
+            'التقييم': f"{avg_rating} ⭐",
+            'عدد التقييمات': total_reviews,
+            'خط العرض': user['lat'],
+            'خط الطول': user['lon'],
+            'التواصل': f"{user['contact_type']}: {user['contact_info']}",
+            'مجالات الخبرة': ', '.join(user.get('expertise', []))
+        })
+    
+    if map_data:
+        df = pd.DataFrame(map_data)
+        st.dataframe(df, use_container_width=True)
+        
+        # عرض إحداثيات الخريطة للمساعدة
+        st.subheader("🧭 إحداثيات المواقع")
+        st.write("يمكنك استخدام هذه الإحداثيات في تطبيقات الخرائط مثل Google Maps:")
+        
+        for user in filtered_users:
+            city_ar = user["city"].split(" - ")[0]
+            st.write(f"**{user['name']} - {city_ar}:** خط العرض {user['lat']:.4f}, خط الطول {user['lon']:.4f}")
+    else:
+        st.warning("⚠️ لا توجد نتائج تطابق معايير البحث")
     
     # إحصائيات سريعة
     st.subheader("📊 إحصائيات سريعة")
@@ -375,6 +361,9 @@ def show_map():
         st.metric("نتائج البحث", len(filtered_users))
     
     # عرض قائمة مفصلة
+    show_detailed_list(filtered_users)
+
+def show_detailed_list(filtered_users):
     st.subheader("👥 قائمة المغتربين المفصلة")
     
     if filtered_users:
@@ -398,6 +387,7 @@ def show_map():
                     st.write(f"📞 **{user['contact_type']}:** {user['contact_info']}")
                     st.write(f"🗣️ **اللغات:** {user.get('language', 'غير محدد')}")
                     st.write(f"⭐ **التقييم:** {avg_rating}/5 ({total_reviews} تقييم)")
+                    st.write(f"📍 **الإحداثيات:** {user['lat']:.4f}, {user['lon']:.4f}")
                 
                 with col2:
                     st.write("**الحالة والموقع:**")
@@ -496,7 +486,7 @@ def main():
     st.sidebar.title("🌍 التنقل")
     
     page_options = {
-        "الخريطة التفاعلية": show_map,
+        "الخريطة والبحث": show_map,
         "تسجيل جديد": show_registration_form,
         "الإحصائيات": show_statistics
     }
