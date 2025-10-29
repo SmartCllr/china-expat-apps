@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import folium
-from streamlit_folium import st_folium
 import json
 import uuid
 from datetime import datetime
+from streamlit.components.v1 import html
 
 # إعدادات السيرفر للاستضافة
 st.set_page_config(
@@ -109,6 +109,22 @@ def create_sample_users():
             "expertise": ["مترجم صيني انجليزي عربي", "خبير معاملات حكومية"],
             "registration_date": "2024-01-10 14:20",
             "color": "orange"
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "خالد عبدالله",
+            "city": "غوانغتشو - Guangzhou - 广州", 
+            "lat": 23.1291,
+            "lon": 113.2644,
+            "status": "متاح",
+            "contact_type": "هاتف",
+            "contact_info": "+8613923456789",
+            "details": "تاجر ومستورد، متخصص في الأجهزة الإلكترونية والمنتجات المنزلية",
+            "language": "العربية, الإنجليزية, الصينية",
+            "specialization": "تجارة واستيراد",
+            "expertise": ["خبير فحص منتجات", "خبير اشراف على الشحن", "خبير فحص مصانع وشركات"],
+            "registration_date": "2024-01-20 09:15",
+            "color": "green"
         }
     ]
 
@@ -254,46 +270,8 @@ def show_registration_form():
             else:
                 st.error("⚠️ يرجى ملء جميع الحقول الإلزامية (*) بما في ذلك مجالات الخبرة")
 
-def create_folium_map(filtered_users):
-    """إنشاء خريطة باستخدام Folium"""
-    
-    # إنشاء الخريطة الأساسية
-    m = folium.Map(location=[35.0, 105.0], zoom_start=4)
-    
-    # إضافة المستخدمين إلى الخريطة
-    for user in filtered_users:
-        avg_rating, total_reviews = calculate_user_rating(user['id'])
-        
-        # إنشاء محتوى النافذة المنبثقة
-        popup_html = f"""
-        <div style="width: 300px; direction: rtl; text-align: right;">
-            <h4>{user['name']}</h4>
-            <p><b>المدينة:</b> {user['city']}</p>
-            <p><b>الحالة:</b> {user['status']}</p>
-            <p><b>التقييم:</b> {avg_rating} ⭐ ({total_reviews} تقييم)</p>
-            <p><b>التواصل:</b> {user['contact_type']}: {user['contact_info']}</p>
-            <p><b>مجالات الخبرة:</b> {', '.join(user.get('expertise', []))}</p>
-        </div>
-        """
-        
-        folium.Marker(
-            [user['lat'], user['lon']],
-            popup=folium.Popup(popup_html, max_width=300),
-            tooltip=user['name'],
-            icon=folium.Icon(color=user.get('color', 'gray'), icon='user')
-        ).add_to(m)
-    
-    return m
-
-def show_map():
-    st.header("🗺️ خريطة المغتربين في الصين")
-    
-    # إضافة مدينة جديدة
-    add_custom_city()
-    
-    if not st.session_state.users:
-        st.warning("⚠️ لا توجد بيانات لعرضها. يرجى تسجيل مستخدمين جدد.")
-        return
+def create_folium_map():
+    """إنشاء خريطة Folium وإرجاعها كـ HTML"""
     
     # الشريط الجانبي للتصفية
     st.sidebar.header("🔍 تصفية البحث")
@@ -334,16 +312,52 @@ def show_map():
         if calculate_user_rating(u['id'])[0] >= min_rating
     ]
     
-    # عرض الخريطة
+    # إنشاء الخريطة
+    m = folium.Map(location=[35.0, 105.0], zoom_start=4)
+    
+    # إضافة المستخدمين إلى الخريطة
+    for user in filtered_users:
+        avg_rating, total_reviews = calculate_user_rating(user['id'])
+        
+        popup_html = f"""
+        <div style="width: 300px; direction: rtl; text-align: right;">
+            <h4>{user['name']}</h4>
+            <p><b>المدينة:</b> {user['city']}</p>
+            <p><b>الحالة:</b> {user['status']}</p>
+            <p><b>التقييم:</b> {avg_rating} ⭐ ({total_reviews} تقييم)</p>
+            <p><b>التواصل:</b> {user['contact_type']}: {user['contact_info']}</p>
+            <p><b>مجالات الخبرة:</b> {', '.join(user.get('expertise', []))}</p>
+        </div>
+        """
+        
+        folium.Marker(
+            [user['lat'], user['lon']],
+            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=user['name'],
+            icon=folium.Icon(color=user.get('color', 'gray'), icon='user')
+        ).add_to(m)
+    
+    # إرجاع الخريطة والمستخدمين المصفاة
+    return m._repr_html_(), filtered_users
+
+def show_map():
+    st.header("🗺️ خريطة المغتربين في الصين")
+    
+    # إضافة مدينة جديدة
+    add_custom_city()
+    
+    if not st.session_state.users:
+        st.warning("⚠️ لا توجد بيانات لعرضها. يرجى تسجيل مستخدمين جدد.")
+        return
+    
+    # إنشاء وعرض الخريطة
     st.subheader("الخريطة التفاعلية")
     st.markdown("انقر على أي علامة في الخريطة لعرض معلومات المغترب")
     
-    # إنشاء وعرض الخريطة
-    map_obj = create_folium_map(filtered_users)
-    if map_obj:
-        st_folium(map_obj, width=1200, height=600)
-    else:
-        st.error("❌ لا يمكن عرض الخريطة بسبب عدم وجود بيانات")
+    map_html, filtered_users = create_folium_map()
+    
+    # عرض الخريطة باستخدام html component
+    html(map_html, width=1200, height=600)
     
     # إحصائيات سريعة
     st.subheader("📊 إحصائيات سريعة")
