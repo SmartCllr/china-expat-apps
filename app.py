@@ -1,21 +1,18 @@
 import streamlit as st
 import pandas as pd
-import pydeck as pdk
+import folium
+from streamlit_folium import st_folium
 import json
 import uuid
 from datetime import datetime
 
 # إعدادات السيرفر للاستضافة
-def setup_server():
-    st.set_page_config(
-        page_title="تطبيق المغتربين في الصين",
-        page_icon="🌍",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-
-# استدعاء الدالة مباشرة
-setup_server()
+st.set_page_config(
+    page_title="تطبيق المغتربين في الصين",
+    page_icon="🌍",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 st.title("🌍 تطبيق المغتربين في الصين - China Expat App - 中国外籍人士应用")
 
@@ -95,9 +92,7 @@ def create_sample_users():
             "specialization": "هندسة مدنية",
             "expertise": ["مترجم صيني عربي", "خبير خدمات طلابية"],
             "registration_date": "2024-01-15 10:30",
-            "color": [0, 255, 0],  # أخضر للمتاح
-            "rating": 4.8,
-            "reviews": 12
+            "color": "green"
         },
         {
             "id": str(uuid.uuid4()),
@@ -113,45 +108,7 @@ def create_sample_users():
             "specialization": "تسويق رقمي",
             "expertise": ["مترجم صيني انجليزي عربي", "خبير معاملات حكومية"],
             "registration_date": "2024-01-10 14:20",
-            "color": [255, 165, 0],  # برتقالي للمشغول
-            "rating": 4.9,
-            "reviews": 8
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "name": "خالد عبدالله",
-            "city": "غوانغتشو - Guangzhou - 广州", 
-            "lat": 23.1291,
-            "lon": 113.2644,
-            "status": "متاح",
-            "contact_type": "هاتف",
-            "contact_info": "+8613923456789",
-            "details": "تاجر ومستورد، متخصص في الأجهزة الإلكترونية والمنتجات المنزلية",
-            "language": "العربية, الإنجليزية, الصينية",
-            "specialization": "تجارة واستيراد",
-            "expertise": ["خبير فحص منتجات", "خبير اشراف على الشحن", "خبير فحص مصانع وشركات"],
-            "registration_date": "2024-01-20 09:15",
-            "color": [0, 255, 0],  # أخضر للمتاح
-            "rating": 4.6,
-            "reviews": 15
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "name": "سارة أحمد",
-            "city": "شينزين - Shenzhen - 深圳",
-            "lat": 22.5431,
-            "lon": 114.0579,
-            "status": "غير متاح", 
-            "contact_type": "بريد إلكتروني",
-            "contact_info": "sara.tech@email.com",
-            "details": "مصممة جرافيك ومطورة واجهات مستخدم، أعمل في شركة تقنية ناشئة",
-            "language": "العربية, الصينية, الإنجليزية",
-            "specialization": "تصميم جرافيك",
-            "expertise": ["متاح معدات تصوير"],
-            "registration_date": "2024-01-18 16:45",
-            "color": [255, 0, 0],  # أحمر لغير المتاح
-            "rating": 4.7,
-            "reviews": 5
+            "color": "orange"
         }
     ]
 
@@ -188,8 +145,7 @@ def show_rating_system(user_id):
     user_ratings = st.session_state.ratings.get(user_id, [])
     if user_ratings:
         st.subheader("📝 التقييمات السابقة")
-        for i, rating in enumerate(user_ratings[-5:]):  # عرض آخر 5 تقييمات
-            # استخدام st.container بدلاً من st.expander
+        for i, rating in enumerate(user_ratings[-5:]):
             with st.container():
                 st.markdown(f"**⭐ {rating['rating']}/5 - {rating['date']}**")
                 st.write(f"**التعليق:** {rating['review']}")
@@ -245,7 +201,6 @@ def show_registration_form():
             help="يمكنك اختيار أكثر من مجال خبرة"
         )
         
-        # تحذير إذا لم يتم اختيار أي مجال خبرة
         if not expertise:
             st.warning("⚠️ يرجى اختيار مجال خبرة واحد على الأقل")
         
@@ -253,17 +208,16 @@ def show_registration_form():
         
         if submitted:
             if name and contact_info and details and expertise:
-                # إحداثيات المدينة المختارة
                 lat = CHINA_CITIES[city]["lat"]
                 lon = CHINA_CITIES[city]["lon"]
                 
                 # تحديد اللون حسب الحالة
                 if status == "متاح":
-                    color = [0, 255, 0]  # أخضر
+                    color = "green"
                 elif status == "مشغول":
-                    color = [255, 165, 0]  # برتقالي
+                    color = "orange"
                 else:
-                    color = [255, 0, 0]  # أحمر
+                    color = "red"
                 
                 new_user = {
                     "id": str(uuid.uuid4()),
@@ -279,16 +233,13 @@ def show_registration_form():
                     "specialization": specialization,
                     "expertise": expertise,
                     "registration_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "color": color,
-                    "rating": 0,
-                    "reviews": 0
+                    "color": color
                 }
                 
                 st.session_state.users.append(new_user)
                 st.success("🎉 تم تسجيل بياناتك بنجاح!")
                 st.balloons()
                 
-                # عرض البيانات المسجلة
                 st.subheader("بياناتك المسجلة")
                 col1, col2 = st.columns(2)
                 with col1:
@@ -303,80 +254,36 @@ def show_registration_form():
             else:
                 st.error("⚠️ يرجى ملء جميع الحقول الإلزامية (*) بما في ذلك مجالات الخبرة")
 
-def create_pydeck_map(filtered_users):
-    """إنشاء خريطة باستخدام PyDeck"""
+def create_folium_map(filtered_users):
+    """إنشاء خريطة باستخدام Folium"""
     
-    # تحويل البيانات إلى DataFrame
-    map_data = []
+    # إنشاء الخريطة الأساسية
+    m = folium.Map(location=[35.0, 105.0], zoom_start=4)
+    
+    # إضافة المستخدمين إلى الخريطة
     for user in filtered_users:
         avg_rating, total_reviews = calculate_user_rating(user['id'])
-        map_data.append({
-            'name': user['name'],
-            'city': user['city'],
-            'lat': user['lat'],
-            'lon': user['lon'],
-            'status': user['status'],
-            'contact_type': user['contact_type'],
-            'contact_info': user['contact_info'],
-            'details': user['details'],
-            'language': user.get('language', ''),
-            'expertise': ', '.join(user.get('expertise', [])),
-            'rating': avg_rating,
-            'reviews': total_reviews,
-            'coordinates': [user['lon'], user['lat']],
-            'color': user.get('color', [255, 0, 0])
-        })
+        
+        # إنشاء محتوى النافذة المنبثقة
+        popup_html = f"""
+        <div style="width: 300px; direction: rtl; text-align: right;">
+            <h4>{user['name']}</h4>
+            <p><b>المدينة:</b> {user['city']}</p>
+            <p><b>الحالة:</b> {user['status']}</p>
+            <p><b>التقييم:</b> {avg_rating} ⭐ ({total_reviews} تقييم)</p>
+            <p><b>التواصل:</b> {user['contact_type']}: {user['contact_info']}</p>
+            <p><b>مجالات الخبرة:</b> {', '.join(user.get('expertise', []))}</p>
+        </div>
+        """
+        
+        folium.Marker(
+            [user['lat'], user['lon']],
+            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=user['name'],
+            icon=folium.Icon(color=user.get('color', 'gray'), icon='user')
+        ).add_to(m)
     
-    df = pd.DataFrame(map_data)
-    
-    if df.empty:
-        return None
-    
-    # إعداد طبقة الخريطة
-    layer = pdk.Layer(
-        'ScatterplotLayer',
-        data=df,
-        get_position='coordinates',
-        get_fill_color='color',
-        get_radius=50000,
-        pickable=True,
-        auto_highlight=True,
-        radius_min_pixels=8,
-        radius_max_pixels=15,
-    )
-    
-    # إعداد عرض الخريطة
-    view_state = pdk.ViewState(
-        latitude=35.0,
-        longitude=105.0,
-        zoom=4,
-        pitch=0,
-        bearing=0
-    )
-    
-    # إنشاء الخريطة
-    map = pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        tooltip={
-            'html': '''
-                <b>الاسم:</b> {name}<br/>
-                <b>المدينة:</b> {city}<br/>
-                <b>الحالة:</b> {status}<br/>
-                <b>التقييم:</b> {rating} ⭐ ({reviews} تقييم)<br/>
-                <b>مجالات الخبرة:</b> {expertise}<br/>
-                <b>التواصل:</b> {contact_type}: {contact_info}
-            ''',
-            'style': {
-                'backgroundColor': 'white',
-                'color': 'black',
-                'direction': 'rtl',
-                'textAlign': 'right'
-            }
-        }
-    )
-    
-    return map
+    return m
 
 def show_map():
     st.header("🗺️ خريطة المغتربين في الصين")
@@ -391,14 +298,11 @@ def show_map():
     # الشريط الجانبي للتصفية
     st.sidebar.header("🔍 تصفية البحث")
     
-    # تصفية حسب المدينة
     cities = list(set(user["city"] for user in st.session_state.users))
     selected_city = st.sidebar.selectbox("اختر المدينة", ["الكل"] + cities)
     
-    # تصفية حسب الحالة
     status_filter = st.sidebar.selectbox("الحالة", ["الكل", "متاح", "مشغول", "غير متاح"])
     
-    # تصفية حسب مجالات الخبرة
     st.sidebar.subheader("🛠️ تصفية حسب الخبرة")
     all_expertise = list(EXPERTISE_AREAS.keys())
     selected_expertise = st.sidebar.multiselect(
@@ -407,7 +311,6 @@ def show_map():
         help="اختر مجالات الخبرة المطلوبة"
     )
     
-    # تصفية حسب التقييم
     st.sidebar.subheader("⭐ تصفية حسب التقييم")
     min_rating = st.sidebar.slider("حد أدنى للتقييم", 0.0, 5.0, 0.0, 0.5)
     
@@ -426,7 +329,6 @@ def show_map():
             if any(expertise in u.get('expertise', []) for expertise in selected_expertise)
         ]
     
-    # تصفية حسب التقييم
     filtered_users = [
         u for u in filtered_users 
         if calculate_user_rating(u['id'])[0] >= min_rating
@@ -434,12 +336,12 @@ def show_map():
     
     # عرض الخريطة
     st.subheader("الخريطة التفاعلية")
-    st.markdown("انقر على أي نقطة في الخريطة لعرض معلومات المغترب")
+    st.markdown("انقر على أي علامة في الخريطة لعرض معلومات المغترب")
     
     # إنشاء وعرض الخريطة
-    map = create_pydeck_map(filtered_users)
-    if map:
-        st.pydeck_chart(map)
+    map_obj = create_folium_map(filtered_users)
+    if map_obj:
+        st_folium(map_obj, width=1200, height=600)
     else:
         st.error("❌ لا يمكن عرض الخريطة بسبب عدم وجود بيانات")
     
@@ -448,30 +350,23 @@ def show_map():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        total_users = len(st.session_state.users)
-        st.metric("إجمالي المسجلين", total_users)
-    
+        st.metric("إجمالي المسجلين", len(st.session_state.users))
     with col2:
         available_count = len([u for u in st.session_state.users if u["status"] == "متاح"])
         st.metric("المتاحون", available_count)
-    
     with col3:
         cities_count = len(set(u["city"] for u in st.session_state.users))
         st.metric("المدن المغطاة", cities_count)
-    
     with col4:
-        filtered_count = len(filtered_users)
-        st.metric("نتائج البحث", filtered_count)
+        st.metric("نتائج البحث", len(filtered_users))
     
     # عرض قائمة مفصلة
     st.subheader("👥 قائمة المغتربين المفصلة")
     
     if filtered_users:
         for user in filtered_users:
-            # حساب التقييم الحالي
             avg_rating, total_reviews = calculate_user_rating(user['id'])
             
-            # تحديد الأيقونة حسب الحالة
             if user["status"] == "متاح":
                 status_icon = "🟢"
             elif user["status"] == "مشغول":
@@ -489,7 +384,6 @@ def show_map():
                     st.write(f"📞 **{user['contact_type']}:** {user['contact_info']}")
                     st.write(f"🗣️ **اللغات:** {user.get('language', 'غير محدد')}")
                     st.write(f"⭐ **التقييم:** {avg_rating}/5 ({total_reviews} تقييم)")
-                    st.write(f"📍 **الإحداثيات:** {user['lat']:.4f}, {user['lon']:.4f}")
                 
                 with col2:
                     st.write("**الحالة والموقع:**")
@@ -510,7 +404,6 @@ def show_map():
                 st.write("**التفاصيل:**")
                 st.info(user['details'])
                 
-                # نظام التقييم - سيظهر خارج الـ expander
                 show_rating_system(user['id'])
     else:
         st.warning("⚠️ لا توجد نتائج تطابق معايير البحث")
@@ -527,7 +420,6 @@ def show_statistics():
     busy_users = len([u for u in st.session_state.users if u["status"] == "مشغول"])
     unavailable_users = len([u for u in st.session_state.users if u["status"] == "غير متاح"])
     
-    # إحصائيات عامة
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -587,7 +479,6 @@ def show_statistics():
             st.write(f"{i}. **{user['name']}** - {city_ar} - ⭐ {user['rating']} ({user['reviews']} تقييم)")
 
 def main():
-    # شريط التنقل
     st.sidebar.title("🌍 التنقل")
     
     page_options = {
@@ -598,7 +489,6 @@ def main():
     
     selected_page = st.sidebar.radio("اختر الصفحة:", list(page_options.keys()))
     
-    # معلومات سريعة في الشريط الجانبي
     st.sidebar.markdown("---")
     st.sidebar.header("ℹ️ معلومات سريعة")
     st.sidebar.write(f"**إجمالي المسجلين:** {len(st.session_state.users)}")
@@ -606,11 +496,9 @@ def main():
     available_count = len([u for u in st.session_state.users if u["status"] == "متاح"])
     st.sidebar.write(f"**المتاحون الآن:** {available_count}")
     
-    # إجمالي التقييمات
     total_reviews = sum(len(ratings) for ratings in st.session_state.ratings.values())
     st.sidebar.write(f"**إجمالي التقييمات:** {total_reviews}")
     
-    # عرض الصفحة المختارة
     page_options[selected_page]()
 
 if __name__ == "__main__":
